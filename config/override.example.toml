@@ -51,3 +51,7 @@
 [storage]
 # Point at an external drive or a shared dataset cache instead of ./data.
 # root = "/mnt/data/marketpulse"
+
+[ingestion]
+# Narrow to one symbol for a fast local dev loop instead of fetching all six.
+# symbols = ["SPY"]

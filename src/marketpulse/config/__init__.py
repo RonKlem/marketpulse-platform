@@ -5,6 +5,7 @@ from __future__ import annotations
 from marketpulse.config.models import (
     AnalyticsConfig,
     Environment,
+    IngestionConfig,
     LoggingConfig,
     PlatformConfig,
     StorageConfig,
@@ -22,6 +23,7 @@ __all__ = [
     "ENV_PREFIX",
     "AnalyticsConfig",
     "Environment",
+    "IngestionConfig",
     "LoggingConfig",
     "PlatformConfig",
     "StorageConfig",

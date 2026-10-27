@@ -28,7 +28,7 @@ ignored field.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 import logging
@@ -42,6 +42,7 @@ from marketpulse.core.errors import ConfigurationError
 __all__ = [
     "AnalyticsConfig",
     "Environment",
+    "IngestionConfig",
     "LoggingConfig",
     "MedallionLayer",
     "PlatformConfig",
@@ -55,6 +56,18 @@ _MEMORY_LIMIT_PATTERN: Final = re.compile(
 
 _MAX_REASONABLE_THREADS: Final = 256
 """Guards against a typo (``threads = 640``) oversubscribing the box."""
+
+_MAX_RETRIES_CEILING: Final = 10
+"""Guards against a typo turning a transient failure into a long hang."""
+
+_DEFAULT_SYMBOLS: Final[tuple[str, ...]] = ("SPY", "QQQ", "DIA", "AAPL", "MSFT", "NVDA")
+"""The Phase 1 demonstration universe: three broad-market ETFs, three
+large-cap single names, all liquid enough that Yahoo's chart endpoint has no
+illiquid-security quirks to work around while the framework itself is being
+proven out. Restated explicitly in ``config/base.toml`` for operator
+visibility, matching how ``StorageConfig.root`` carries a real default here
+*and* in the committed TOML layer.
+"""
 
 
 def available_cpus() -> int:
@@ -327,6 +340,99 @@ class LoggingConfig:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class IngestionConfig:
+    """Historical OHLCV ingestion from Yahoo Finance's chart endpoint.
+
+    Attributes:
+        symbols: Tickers to ingest. Validated non-empty, free of blank
+            entries, and free of case-insensitive duplicates; not normalised
+            in place, so callers that need a canonical case (a file name, a
+            column value) convert defensively at the point of use.
+        base_url: Yahoo's undocumented chart endpoint. A field rather than a
+            constant so a future mirror or proxy does not require a code
+            change (ADR-0003).
+        range: Yahoo's ``range`` query parameter. Deliberately not
+            ``"max"``: for a symbol with decades of history, Yahoo silently
+            serves monthly-spaced bars for ``range=max`` even when
+            ``interval="1d"`` is requested. :mod:`marketpulse.ingestion.yahoo`
+            detects and rejects this via the response's own
+            ``meta.dataGranularity`` field. ``"20y"`` was confirmed by live
+            measurement (see ADR-0003) to return genuine daily bars for every
+            symbol in the default universe; this is a documented,
+            periodically-reverified constant, not a guess.
+        interval: Yahoo's ``interval`` query parameter, e.g. ``"1d"``.
+        request_timeout_seconds: Per-attempt socket timeout.
+        max_retries: Additional attempts after the first, on transient
+            failures only (HTTP 429/5xx, connection errors, timeouts).
+        backoff_base_seconds: Base delay for exponential backoff between
+            retries.
+        backoff_max_seconds: Ceiling on the computed backoff delay.
+        user_agent: Yahoo returns HTTP 429 or an empty body to the default
+            urllib User-Agent; a browser-like string is required to get a
+            real response.
+    """
+
+    symbols: Sequence[str] = field(default_factory=lambda: _DEFAULT_SYMBOLS)
+    base_url: str = "https://query1.finance.yahoo.com/v8/finance/chart"
+    range: str = "20y"
+    interval: str = "1d"
+    request_timeout_seconds: float = 10.0
+    max_retries: int = 3
+    backoff_base_seconds: float = 1.0
+    backoff_max_seconds: float = 30.0
+    user_agent: str = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    )
+
+    def __post_init__(self) -> None:
+        """Validate the symbol list and the retry/backoff parameters.
+
+        Raises:
+            ConfigurationError: If ``symbols`` is empty, contains a blank or
+                case-insensitively duplicate entry, or a numeric field is out
+                of its sane range.
+        """
+        if not self.symbols:
+            msg = "ingestion.symbols must not be empty"
+            raise ConfigurationError(msg)
+
+        if any(not symbol.strip() for symbol in self.symbols):
+            msg = "ingestion.symbols must not contain blank entries"
+            raise ConfigurationError(msg, symbols=list(self.symbols))
+
+        normalised = [symbol.strip().upper() for symbol in self.symbols]
+        duplicates = sorted({symbol for symbol in normalised if normalised.count(symbol) > 1})
+        if duplicates:
+            msg = "ingestion.symbols contains duplicates"
+            raise ConfigurationError(msg, duplicates=duplicates)
+
+        if not 0 <= self.max_retries <= _MAX_RETRIES_CEILING:
+            msg = f"ingestion.max_retries must be between 0 and {_MAX_RETRIES_CEILING}"
+            raise ConfigurationError(msg, max_retries=self.max_retries)
+
+        if self.request_timeout_seconds <= 0:
+            msg = "ingestion.request_timeout_seconds must be positive"
+            raise ConfigurationError(msg, request_timeout_seconds=self.request_timeout_seconds)
+
+        if self.backoff_base_seconds <= 0:
+            msg = "ingestion.backoff_base_seconds must be positive"
+            raise ConfigurationError(msg, backoff_base_seconds=self.backoff_base_seconds)
+
+        if self.backoff_max_seconds < self.backoff_base_seconds:
+            msg = "ingestion.backoff_max_seconds must be >= backoff_base_seconds"
+            raise ConfigurationError(
+                msg,
+                backoff_base_seconds=self.backoff_base_seconds,
+                backoff_max_seconds=self.backoff_max_seconds,
+            )
+
+        if not self.base_url.startswith("https://"):
+            msg = "ingestion.base_url must use https"
+            raise ConfigurationError(msg, base_url=self.base_url)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class PlatformConfig:
     """Fully resolved platform configuration.
 
@@ -339,6 +445,7 @@ class PlatformConfig:
         storage: Local lakehouse layout.
         analytics: Local engine execution limits.
         logging: Observability settings.
+        ingestion: Historical market data ingestion from Yahoo Finance.
         extras: Validated-as-present-but-not-typed config. Lets a subsystem
             under active development carry settings without every experiment
             forcing a change to this class. Promote a key to a typed field once
@@ -349,6 +456,7 @@ class PlatformConfig:
     storage: StorageConfig = field(default_factory=StorageConfig)
     analytics: AnalyticsConfig = field(default_factory=AnalyticsConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    ingestion: IngestionConfig = field(default_factory=IngestionConfig)
     extras: Mapping[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

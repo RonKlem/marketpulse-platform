@@ -1,0 +1,34 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "USD",
+          "symbol": "SPY",
+          "exchangeName": "PCX",
+          "instrumentType": "ETF",
+          "exchangeTimezoneName": "America/New_York",
+          "dataGranularity": "1d"
+        },
+        "timestamp": [1767364200, 1767623400, 1767709800, 1767796200, 1767882600],
+        "indicators": {
+          "quote": [
+            {
+              "open": [472.10, 473.55, 474.02, 475.88, 476.30],
+              "high": [473.90, 475.20, 475.60, 477.10, 477.95],
+              "low": [471.50, 472.80, 473.40, 474.90, 475.60],
+              "close": [472.65, 475.10, 474.85, 476.95, 477.40],
+              "volume": [74120000, 68905000, 70210000, 71040000, 69330000]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [472.65, 475.10, 474.85, 476.95, 477.40]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

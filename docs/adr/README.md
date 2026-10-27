@@ -15,6 +15,7 @@ answer should be a document rather than an archaeology exercise through
 |-----|----------|--------|------|
 | [0001](0001-why-a-financial-market-platform.md) | Why a financial market platform? | Accepted | 2026-10-26 |
 | [0002](0002-polars-duckdb-for-local-development.md) | Why Polars and DuckDB for local development? | Accepted | 2026-10-26 |
+| [0003](0003-why-yahoo-finance-for-initial-ingestion.md) | Why Yahoo Finance's chart endpoint for initial ingestion? | Accepted | 2026-10-27 |
 
 ## What warrants an ADR
 

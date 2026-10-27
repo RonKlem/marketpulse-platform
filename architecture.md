@@ -180,7 +180,7 @@ src/marketpulse/
 ├── config/         Layered TOML + env → frozen validated PlatformConfig.
 ├── analytics/      AnalyticsSession: the Polars/DuckDB Arrow boundary.
 ├── cli.py          Entry point. The only module that configures logging.
-├── ingestion/      Source connectors.                        (Phase 1)
+├── ingestion/      Yahoo Finance connector, historical OHLCV ingestion.
 ├── transform/      Medallion transformations.                 (Phase 2)
 ├── quality/        Data quality expectations.                 (Phase 2)
 ├── streaming/      Event generation and ingestion.            (Phase 4)

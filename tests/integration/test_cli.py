@@ -13,7 +13,8 @@ logging is enabled.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import polars as pl  # noqa: TC002  -- runtime import keeps this an integration-tier test
 import pytest
@@ -21,11 +22,13 @@ import pytest
 from marketpulse.analytics.session import open_session
 from marketpulse.cli import EXIT_ERROR, EXIT_OK, main
 from marketpulse.config.models import MedallionLayer
+from marketpulse.core.errors import IngestionError
+from marketpulse.ingestion import yahoo
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from marketpulse.config.models import PlatformConfig
+
+_YAHOO_FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "yahoo_chart_spy.json"
 
 
 @pytest.fixture(autouse=True)
@@ -269,3 +272,68 @@ class TestFailureHandling:
 
         assert main(["config", "show"]) == EXIT_ERROR
         assert "did_you_mean" in capsys.readouterr().err
+
+
+@pytest.fixture
+def spy_payload() -> dict[str, Any]:
+    payload: dict[str, Any] = json.loads(_YAHOO_FIXTURE_PATH.read_text(encoding="utf-8"))
+    return payload
+
+
+class TestIngestCommand:
+    """The network boundary is patched; everything else is the real dispatch path."""
+
+    def test_exits_zero_and_lands_a_file(
+        self,
+        spy_payload: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        tmp_path: Path,
+    ) -> None:
+        monkeypatch.setattr(yahoo, "fetch_chart_payload", lambda _symbol, _cfg: spy_payload)
+
+        assert main(["ingest", "--symbol", "SPY"]) == EXIT_OK
+        assert (tmp_path / "lakehouse" / "raw" / "spy.parquet").is_file()
+        capsys.readouterr()
+
+    def test_json_output_reports_rows_and_path_per_symbol(
+        self,
+        spy_payload: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(yahoo, "fetch_chart_payload", lambda _symbol, _cfg: spy_payload)
+
+        assert main(["ingest", "--symbol", "SPY", "--json"]) == EXIT_OK
+        payload = json.loads(capsys.readouterr().out)
+        assert payload[0]["symbol"] == "SPY"
+        assert payload[0]["status"] == "ok"
+        assert payload[0]["rows"] == 5
+        assert payload[0]["path"] is not None
+
+    def test_repeatable_symbol_flag_overrides_configured_symbols(
+        self,
+        spy_payload: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(yahoo, "fetch_chart_payload", lambda _symbol, _cfg: spy_payload)
+
+        main(["ingest", "--symbol", "SPY", "--symbol", "QQQ", "--json"])
+        payload = json.loads(capsys.readouterr().out)
+        assert {row["symbol"] for row in payload} == {"SPY", "QQQ"}
+
+    def test_failing_symbol_exits_nonzero_and_names_the_failure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def always_fails(symbol: str, cfg: object) -> dict[str, Any]:
+            msg = "simulated upstream failure"
+            raise IngestionError(msg, symbol=symbol)
+
+        monkeypatch.setattr(yahoo, "fetch_chart_payload", always_fails)
+
+        exit_code = main(["ingest", "--symbol", "SPY"])
+        assert exit_code == EXIT_ERROR
+        assert "SPY" in capsys.readouterr().out

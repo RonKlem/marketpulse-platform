@@ -10,6 +10,7 @@ import pytest
 from marketpulse.config.models import (
     AnalyticsConfig,
     Environment,
+    IngestionConfig,
     LoggingConfig,
     MedallionLayer,
     PlatformConfig,
@@ -507,3 +508,55 @@ class TestMedallionLayer:
             "silver",
             "gold",
         ]
+
+
+class TestIngestionConfig:
+    def test_default_symbols_are_the_phase_one_universe(self) -> None:
+        assert set(IngestionConfig().symbols) == {"SPY", "QQQ", "DIA", "AAPL", "MSFT", "NVDA"}
+
+    def test_empty_symbols_is_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="must not be empty"):
+            IngestionConfig(symbols=())
+
+    def test_blank_symbol_entry_is_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="blank entries"):
+            IngestionConfig(symbols=("SPY", "   "))
+
+    def test_case_insensitive_duplicate_symbol_is_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="duplicates"):
+            IngestionConfig(symbols=("SPY", "spy"))
+
+    @pytest.mark.parametrize("max_retries", [-1, 11])
+    def test_max_retries_out_of_bounds_is_rejected(self, max_retries: int) -> None:
+        with pytest.raises(ConfigurationError, match="max_retries must be between"):
+            IngestionConfig(symbols=("SPY",), max_retries=max_retries)
+
+    def test_non_positive_timeout_is_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="request_timeout_seconds must be positive"):
+            IngestionConfig(symbols=("SPY",), request_timeout_seconds=0)
+
+    def test_backoff_max_below_base_is_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="backoff_max_seconds must be"):
+            IngestionConfig(symbols=("SPY",), backoff_base_seconds=5.0, backoff_max_seconds=1.0)
+
+    def test_non_https_base_url_is_rejected(self) -> None:
+        with pytest.raises(ConfigurationError, match="must use https"):
+            IngestionConfig(symbols=("SPY",), base_url="http://example.com")
+
+    def test_ingestion_section_resolves_through_load_config(self, config_dir: Path) -> None:
+        (config_dir / "base.toml").write_text(
+            '[ingestion]\nsymbols = ["SPY", "QQQ"]\n', encoding="utf-8"
+        )
+        resolved = load_config(config_dir=config_dir, environ={})
+        assert resolved.ingestion.symbols == ["SPY", "QQQ"]
+
+    def test_committed_base_layer_ingestion_section_loads(self) -> None:
+        resolved = load_config(environment="local", environ={})
+        assert set(resolved.ingestion.symbols) == {
+            "SPY",
+            "QQQ",
+            "DIA",
+            "AAPL",
+            "MSFT",
+            "NVDA",
+        }

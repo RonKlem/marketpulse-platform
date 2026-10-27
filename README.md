@@ -99,7 +99,7 @@ marketpulse-platform/
 │   ├── core/                   # Errors and structured logging (no internal deps)
 │   ├── config/                 # Layered, validated, immutable configuration
 │   ├── analytics/              # Polars + DuckDB session, the Arrow boundary
-│   ├── ingestion/              # Source connectors              (Phase 1)
+│   ├── ingestion/              # Yahoo Finance connector, historical OHLCV ingestion
 │   ├── transform/              # Medallion transformations      (Phase 2)
 │   ├── quality/                # Data quality expectations      (Phase 2)
 │   ├── streaming/              # Event generation and ingestion (Phase 4)

@@ -141,6 +141,7 @@ def _cmd_doctor(args: argparse.Namespace, config: PlatformConfig) -> int:
         ("available cpus", str(available_cpus())),
         ("storage root", str(config.storage.root)),
         ("storage root exists", str(config.storage.root.exists())),
+        ("configured symbols", ", ".join(config.ingestion.symbols)),
     ]
     print("platform:")
     _print_table(rows)
@@ -223,6 +224,31 @@ def _cmd_query(args: argparse.Namespace, config: PlatformConfig) -> int:
     return EXIT_OK
 
 
+def _cmd_ingest(args: argparse.Namespace, config: PlatformConfig) -> int:
+    """Fetch and land historical OHLCV bars for the configured symbols."""
+    from marketpulse.ingestion.service import run_ingestion
+
+    if args.symbols:
+        config = dataclasses.replace(
+            config,
+            ingestion=dataclasses.replace(config.ingestion, symbols=tuple(args.symbols)),
+        )
+
+    results = run_ingestion(config)
+    failed = [result for result in results if result.status == "failed"]
+
+    if args.json:
+        print(json.dumps([_to_jsonable(result) for result in results], indent=2, default=str))
+    else:
+        rows = [
+            (result.symbol, result.error or f"ok, {result.rows} rows -> {result.path}")
+            for result in results
+        ]
+        _print_table(rows)
+
+    return EXIT_ERROR if failed else EXIT_OK
+
+
 def _build_parser() -> argparse.ArgumentParser:
     """Construct the argument parser."""
     parser = argparse.ArgumentParser(
@@ -289,6 +315,19 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     query_parser.add_argument("--json", action="store_true", help="Emit JSON rows.")
     query_parser.set_defaults(handler=_cmd_query)
+
+    ingest_parser = subparsers.add_parser(
+        "ingest",
+        help="Fetch and land historical OHLCV bars in data/raw/.",
+    )
+    ingest_parser.add_argument(
+        "--symbol",
+        dest="symbols",
+        action="append",
+        help="Override the configured symbol list for this run. Repeatable.",
+    )
+    ingest_parser.add_argument("--json", action="store_true", help="Emit a JSON summary.")
+    ingest_parser.set_defaults(handler=_cmd_ingest)
 
     return parser
 

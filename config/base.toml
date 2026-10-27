@@ -45,3 +45,28 @@ enable_progress_bar = false
 level = "INFO"
 # format is unset so it is detected from whether stderr is a TTY: console for a
 # human at a terminal, JSON for CI, a container, or a Databricks job.
+
+[ingestion]
+# The six symbols demonstrated in Phase 1: three broad-market ETFs and three
+# large-cap single names, chosen for liquidity so the connector and validator
+# have no illiquid-security quirks to work around while being proven out.
+# Restated here (rather than left to the dataclass default) for operator
+# visibility, matching storage.root above.
+symbols = ["SPY", "QQQ", "DIA", "AAPL", "MSFT", "NVDA"]
+
+# Deliberately not "max": for a symbol with decades of history, Yahoo
+# silently serves monthly-spaced bars for range=max even though interval=1d
+# was requested (confirmed live for SPY: 406 rows over 33 years, versus 5,030
+# genuinely daily rows for range=20y). The connector detects and rejects a
+# granularity mismatch via the response's own meta.dataGranularity field, so
+# range=max would currently fail outright rather than silently land wrong
+# data. "20y" is confirmed true-daily for every symbol in this list -- see
+# ADR-0003. See docs/data-contracts/market_prices.md: each ingestion run is
+# a full-refresh overwrite, not an incremental append.
+range = "20y"
+interval = "1d"
+
+# base_url, timeouts, retry, and backoff keep their dataclass defaults (see
+# IngestionConfig in src/marketpulse/config/models.py) -- none of them need
+# per-environment tuning, and no environment's test suite exercises the live
+# network path.

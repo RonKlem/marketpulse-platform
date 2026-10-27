@@ -200,6 +200,7 @@ addopts = [
 ]
 markers = [
   "architecture: tests that enforce repository and documentation conventions",
+  "live: hits the real Yahoo Finance API; never run by default, run explicitly with -m live",
 ]
 filterwarnings = [
   "error",

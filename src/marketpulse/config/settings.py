@@ -48,6 +48,7 @@ from typing import TYPE_CHECKING, Any, Final, get_args, get_type_hints
 from marketpulse.config.models import (
     AnalyticsConfig,
     Environment,
+    IngestionConfig,
     LoggingConfig,
     PlatformConfig,
     StorageConfig,
@@ -109,6 +110,7 @@ _SECTION_TYPES: Final[dict[str, type]] = {
     "storage": StorageConfig,
     "analytics": AnalyticsConfig,
     "logging": LoggingConfig,
+    "ingestion": IngestionConfig,
 }
 
 _TRUE_VALUES: Final = frozenset({"1", "true", "yes", "on"})
@@ -543,6 +545,7 @@ def load_config(
         storage=storage,
         analytics=analytics,
         logging=sections["logging"],
+        ingestion=sections["ingestion"],
         extras=dict(extras),
     )
 

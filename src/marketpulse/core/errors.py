@@ -60,3 +60,14 @@ class DataQualityError(MarketPulseError):
     analytics error is an engineering defect, a data quality error is a
     producer or upstream-source problem.
     """
+
+
+class IngestionError(MarketPulseError):
+    """A source connector could not retrieve, parse, or land expected data.
+
+    Covers transport failures after retries are exhausted, a response shape
+    the parser does not recognise, and a storage write failure during
+    landing. Distinct from :class:`DataQualityError`: here the connector or
+    storage path failed to do its job, rather than successfully retrieving
+    data that is itself wrong.
+    """
