@@ -1,0 +1,76 @@
+# Pre-commit runs the same checks CI runs, locally, before the commit exists.
+# The goal is that a push is never the first time a lint error is seen.
+#
+#   pre-commit install
+#   pre-commit run --all-files
+#
+# Hook versions are pinned. An unpinned hook means a contributor's commit can
+# fail on a tool update that nobody in the project chose, with no diff to
+# explain it. `pre-commit autoupdate` bumps them deliberately.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        # The local lakehouse is git-ignored, but a stray Parquet file committed
+        # from outside data/ would bloat the repository permanently — git keeps
+        # the blob even after the file is deleted.
+        args: [--maxkb=512]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+        # Two files differing only in case break a checkout on Windows and
+        # macOS. Developed on Windows, so this is a real hazard.
+      - id: check-toml
+        # Every config layer is TOML; a malformed one fails at startup.
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        # Two trailing spaces are a hard line break in Markdown.
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        # .gitattributes normalises to LF; this catches it before the commit.
+      - id: detect-private-key
+      - id: debug-statements
+        # A committed breakpoint() hangs CI rather than failing it.
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        # Passing files individually would make mypy miss cross-module errors,
+        # so the whole tree is checked as configured in pyproject.toml.
+        pass_filenames: false
+        args: [--config-file=pyproject.toml]
+        additional_dependencies:
+          - polars>=1.30
+          - duckdb>=1.3
+          - pytest>=8.3
+
+  - repo: local
+    hooks:
+      - id: architecture
+        name: architecture conventions
+        # Runs the structural invariants and ADR convention checks locally, so
+        # a missing "Revisit When" section is caught before the PR exists.
+        entry: pytest -m architecture -q
+        language: system
+        pass_filenames: false
+        # Only when something structural changed; the full check is ~1s but
+        # running it on a docs-only typo fix is noise.
+        files: ^(src/|tests/|docs/adr/|config/|pyproject\.toml|\.github/)
+
+      - id: no-committed-data
+        name: no data files committed
+        entry: >-
+          bash -c 'echo "Data files must not be committed. See .gitignore."; exit 1'
+        language: system
+        files: '\.(parquet|duckdb|arrow|feather)$'

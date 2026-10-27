@@ -1,0 +1,36 @@
+version: 2
+
+updates:
+  # Python dependencies. Grouped so that a routine dev-tool bump is one PR to
+  # review rather than five, while the three runtime engines get individual
+  # PRs — those are installed on Databricks clusters and a major-version change
+  # needs the benchmarks in ADR-0002 re-run, not a rubber stamp.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    groups:
+      dev-tooling:
+        patterns: ["pytest*", "ruff", "mypy", "pre-commit"]
+        update-types: [minor, patch]
+    ignore:
+      # Major bumps of the engines are deliberate decisions, not dependency
+      # chores: Polars 2.0 changes default behaviours, and the Arrow zero-copy
+      # property that ADR-0002 depends on must be re-measured.
+      - dependency-name: polars
+        update-types: [version-update:semver-major]
+      - dependency-name: duckdb
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependencies, ci]
+    groups:
+      actions:
+        patterns: ["*"]

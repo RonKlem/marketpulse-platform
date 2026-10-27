@@ -1,0 +1,29 @@
+# CI environment configuration.
+#
+# Two properties matter here: hermeticity and machine-readable output. A CI run
+# must not depend on state left behind by a previous run, and its logs are read
+# by a parser or a human scrolling a build page, never by an interactive user.
+
+[analytics]
+# GitHub Actions standard runners have 2 vCPUs and 7 GB RAM (as of 2026). A
+# memory_limit above that guarantees the runner is OOM-killed under a join that
+# would have spilled harmlessly with a correct ceiling. The value is set
+# explicitly rather than derived, because a runner's advertised CPU count does
+# not reflect the cgroup quota it actually gets.
+threads = 2
+memory_limit = "4GB"
+temp_directory = "data/_tmp"
+enable_progress_bar = false
+
+# A failing CI assertion must be reproducible from the log alone, and a
+# reordered result set makes a row-order diff useless for diagnosis.
+preserve_insertion_order = true
+
+[logging]
+# Enforced by a cross-field invariant in PlatformConfig: console format is
+# rejected in CI so that build-log failures stay parseable.
+level = "INFO"
+format = "json"
+
+[storage]
+create_missing = true

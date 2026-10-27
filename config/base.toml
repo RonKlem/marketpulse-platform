@@ -1,0 +1,47 @@
+# MarketPulse base configuration.
+#
+# Settings here are true in every environment. Anything that differs by
+# environment belongs in config/{local,ci,dev,prod}.toml, which are merged on
+# top of this file section by section. Developer-local overrides belong in
+# config/local.toml, which is git-ignored.
+#
+# Precedence, lowest to highest:
+#   dataclass defaults -> base.toml -> {env}.toml -> local.toml
+#     -> MARKETPULSE_* environment variables -> explicit kwargs
+#
+# Unknown keys are a startup error, not a warning. See
+# src/marketpulse/config/settings.py for the resolver.
+
+[storage]
+# Relative paths anchor to the repository root, not the working directory, so
+# a command behaves identically from any subdirectory or from a notebook.
+root = "data"
+create_missing = true
+
+[analytics]
+# threads is intentionally unset. It is resolved from the host's CPU topology
+# at load time (AnalyticsConfig.with_host_defaults), because any value written
+# here is wrong on every machine except the one it was written for.
+
+# No duckdb_database: the local lakehouse is Parquet on disk and DuckDB reads
+# it directly, so a persistent database file would be a redundant second copy.
+# Set a path only to persist views, macros, or a query cache across sessions.
+
+# Below this ceiling DuckDB keeps hash tables and sort buffers in memory; above
+# it, it spills to temp_directory. A limit under physical RAM is deliberate:
+# exceeding it degrades to disk, whereas omitting it risks the OS OOM-killer
+# terminating the process with no diagnostics at all.
+memory_limit = "8GB"
+
+# When false, DuckDB may reorder result rows, which lets it stream large scans
+# without buffering to preserve order. Safe here because pipeline output is
+# either explicitly sorted or written partitioned. Set true only where an
+# unordered result would be incorrect.
+preserve_insertion_order = false
+
+enable_progress_bar = false
+
+[logging]
+level = "INFO"
+# format is unset so it is detected from whether stderr is a TTY: console for a
+# human at a terminal, JSON for CI, a container, or a Databricks job.

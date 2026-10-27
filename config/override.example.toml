@@ -1,0 +1,53 @@
+# Developer-local overrides — template.
+#
+#   cp config/override.example.toml config/override.toml
+#
+# config/override.toml is git-ignored and is loaded ONLY when MARKETPULSE_ENV
+# is "local". It is the last file layer applied, so it wins over base.toml and
+# local.toml.
+#
+# It is scoped to the local environment on purpose: a file that exists on one
+# machine and is absent in CI is a reproducibility hazard, and local is the
+# only place that asymmetry is acceptable.
+#
+# Every key below is commented out. Uncomment only what you need — an
+# unrecognised key is a startup error, not a warning, so a typo fails fast
+# instead of silently doing nothing.
+
+[analytics]
+# Pin the thread count instead of deriving it from the host. Useful when
+# benchmarking (a fixed count makes runs comparable) or when leaving headroom
+# for other work on the machine.
+#
+# The derived default is deliberately *not* the logical CPU count. On a hybrid
+# Intel part (P-cores plus E-cores) or any SMT-enabled CPU, DuckDB's pipeline
+# parallelism is bound by memory bandwidth and cache, not instruction issue
+# slots: oversubscribing schedules work onto E-cores or SMT siblings that
+# progress at a fraction of a P-core's rate, and a hash join's build phase
+# finishes only when its slowest partition does.
+# threads = 6
+
+# Raise on a workstation with plenty of RAM; lower when running alongside other
+# memory-hungry processes. Keep it meaningfully below physical RAM: DuckDB
+# spilling to disk is recoverable, the OS OOM-killer is not.
+# memory_limit = "24GB"
+
+# Spill location for operators that exceed memory_limit. Point this at a fast
+# local SSD; spilling to a network mount will dominate query time.
+# temp_directory = "data/_tmp"
+
+# Persist views, macros, and a query cache across sessions. Omit for the
+# default in-memory database, which is correct for nearly all local work: the
+# lakehouse is Parquet on disk and DuckDB reads it directly, so a database file
+# would be a redundant second copy.
+# duckdb_database = "data/marketpulse.duckdb"
+
+# enable_progress_bar = true
+
+[logging]
+# level = "DEBUG"
+# format = "console"
+
+[storage]
+# Point at an external drive or a shared dataset cache instead of ./data.
+# root = "/mnt/data/marketpulse"

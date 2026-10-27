@@ -1,0 +1,21 @@
+# Shared development environment configuration.
+#
+# Distinct from "local": dev is a provisioned, shared environment that several
+# people and scheduled jobs use, so its settings are reviewed in a pull request
+# rather than adjusted on a whim. It is the first environment where storage is
+# managed by Terraform rather than created ad hoc.
+
+[analytics]
+memory_limit = "16GB"
+temp_directory = "data/_tmp"
+preserve_insertion_order = false
+enable_progress_bar = false
+
+[logging]
+level = "INFO"
+format = "json"
+
+[storage]
+# Still true in dev: the local lakehouse directories may be recreated, since
+# dev data is reproducible by re-running ingestion. In prod this is false.
+create_missing = true

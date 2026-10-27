@@ -1,0 +1,25 @@
+# Normalize line endings to LF in the repository regardless of contributor OS.
+# Ruff is configured with line-ending = "lf" to match.
+* text=auto eol=lf
+
+# Windows-native files keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary artifacts: never diff or normalize.
+*.parquet binary
+*.arrow   binary
+*.feather binary
+*.duckdb  binary
+*.db      binary
+*.png     binary
+*.jpg     binary
+*.gif     binary
+*.pdf     binary
+*.whl     binary
+*.gz      binary
+*.zip     binary
+
+# Lockfiles are machine-generated; collapse them in diffs and PR review.
+uv.lock linguist-generated=true -diff

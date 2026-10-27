@@ -1,0 +1,31 @@
+# Local environment configuration (committed).
+#
+# This is the environment layer for MARKETPULSE_ENV=local — the defaults every
+# contributor gets after cloning. It is reviewed in pull requests.
+#
+# For personal overrides that should never be committed, copy
+# config/override.example.toml to config/override.toml. That file is
+# git-ignored and is applied after this one, in the local environment only.
+
+[analytics]
+# threads stays unset so it is derived from the contributor's own CPU topology
+# rather than from whoever last edited this file.
+
+# Modest by default so that a clone behaves well on a laptop with 16 GB of RAM.
+# Raise it in config/override.toml on a larger workstation.
+memory_limit = "8GB"
+
+temp_directory = "data/_tmp"
+
+# A local session is usually interactive, so progress feedback is worth the
+# small overhead.
+enable_progress_bar = true
+
+[logging]
+level = "INFO"
+# Unset: detected from whether stderr is a TTY, so piping to a file or a parser
+# yields JSON without needing a flag.
+
+[storage]
+root = "data"
+create_missing = true

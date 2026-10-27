@@ -1,0 +1,240 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+# ---------------------------------------------------------------------------
+# Project metadata
+# ---------------------------------------------------------------------------
+[project]
+name = "marketpulse"
+version = "0.1.0"
+description = "Cloud-native financial market data and ML platform: local-first analytics on Polars and DuckDB, distributed execution on Databricks."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Ron Klem" }]
+keywords = [
+  "data-platform",
+  "ml-platform",
+  "polars",
+  "duckdb",
+  "databricks",
+  "delta-lake",
+  "lakehouse",
+  "financial-data",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Typing :: Typed",
+]
+
+# Runtime dependencies are deliberately minimal. The same wheel is installed on
+# Databricks clusters, where every extra transitive dependency is a potential
+# conflict with the runtime's pinned libraries. Compatibility ranges live here;
+# exact, reproducible versions live in uv.lock.
+dependencies = [
+  "polars>=1.30,<2",
+  "duckdb>=1.3,<2",
+  "pyarrow>=19",
+]
+
+[project.urls]
+Homepage = "https://github.com/ronklem/marketpulse-platform"
+Documentation = "https://github.com/ronklem/marketpulse-platform/tree/main/docs"
+Issues = "https://github.com/ronklem/marketpulse-platform/issues"
+
+[project.scripts]
+marketpulse = "marketpulse.cli:main"
+
+# PEP 735 dependency groups (installed by `uv sync --group dev` or
+# `pip install --group dev`). Not shipped with the wheel.
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.12",
+  "mypy>=1.16",
+  "pre-commit>=4.0",
+]
+
+# ---------------------------------------------------------------------------
+# Build
+# ---------------------------------------------------------------------------
+[tool.hatch.build.targets.wheel]
+packages = ["src/marketpulse"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/marketpulse",
+  "tests",
+  "docs",
+  "README.md",
+  "LICENSE",
+  "pyproject.toml",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff: linting + formatting
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+extend-exclude = ["data", ".venv"]
+
+[tool.ruff.format]
+docstring-code-format = true
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort
+  "N",    # pep8-naming
+  "UP",   # pyupgrade
+  "B",    # flake8-bugbear
+  "C4",   # flake8-comprehensions
+  "SIM",  # flake8-simplify
+  "RUF",  # ruff-specific rules
+  "PL",   # pylint
+  "PT",   # flake8-pytest-style
+  "S",    # flake8-bandit (security)
+  "DTZ",  # flake8-datetimez: no naive datetimes (market data is timezone-sensitive)
+  "T20",  # flake8-print: no stray print() in library code
+  "ARG",  # flake8-unused-arguments
+  "ERA",  # eradicate: no commented-out code
+  "PERF", # perflint
+  "TC",   # flake8-type-checking
+  "D",    # pydocstyle
+  "ISC",  # flake8-implicit-str-concat
+  "RET",  # flake8-return
+  "PIE",  # flake8-pie
+  "LOG",  # flake8-logging
+  "G",    # flake8-logging-format: lazy %-formatting in log calls
+  "FURB", # refurb
+  "TID",  # flake8-tidy-imports
+  "PTH",  # flake8-use-pathlib
+  "TRY",  # tryceratops
+]
+ignore = [
+  "D105",    # magic methods do not need docstrings
+  "D107",    # __init__ is documented at the class level
+  "TRY003",  # long messages in exception constructors are fine
+  "PLR0913", # argument count is governed by review, not a lint rule
+  "ISC001",  # conflicts with the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+  "S101",    # assert is the test idiom
+  "D",       # tests are documented by their names
+  "PLR2004", # literal expected values are the point of a test
+  "ARG001",  # pytest fixtures are injected by name, not always used
+  "ARG002",  # a fixture may be requested for its side effect alone
+  "PLC0415", # importing inside a test keeps its dependency local to it
+  "TRY301",  # raising inline is how an exception path is exercised
+]
+"scripts/*.py" = [
+  "T201",    # developer entry points; stdout is their interface
+  "PLC0415",
+]
+"src/marketpulse/cli.py" = [
+  "T201",    # the CLI is the one place stdout output is intended
+  # The CLI imports Polars, DuckDB, and PyArrow inside the two commands that
+  # need them. `marketpulse --help` and `config show` should not pay to import
+  # three columnar engines, and on a cold filesystem that import dominates
+  # startup. This is a deliberate latency decision, not an oversight.
+  "PLC0415",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-type-checking]
+# A dataclass field annotation must stay importable at runtime. The config
+# resolver calls get_type_hints() on these classes to decide which fields take
+# a Path, so moving the annotation into a TYPE_CHECKING block would make that
+# lookup raise NameError. Ruff cannot infer this, so the decorators are
+# declared here.
+runtime-evaluated-decorators = [
+  "dataclasses.dataclass",
+  "pydantic.dataclasses.dataclass",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["marketpulse"]
+force-sort-within-sections = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"pandas".msg = "Use Polars or DuckDB. See ADR-002 for the engine selection policy."
+"numpy".msg = "Use Polars expressions. See ADR-002 for the engine selection policy."
+
+[tool.ruff.lint.pylint]
+max-args = 6
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+  "-ra",
+  "--strict-markers",
+  "--strict-config",
+  "--import-mode=importlib",
+]
+markers = [
+  "architecture: tests that enforce repository and documentation conventions",
+]
+filterwarnings = [
+  "error",
+]
+log_level = "DEBUG"
+xfail_strict = true
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["marketpulse"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = false
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+]
+
+# ---------------------------------------------------------------------------
+# Mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+pretty = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true

@@ -1,0 +1,105 @@
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+wheels/
+*.egg-info/
+*.egg
+.eggs/
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+junit.xml
+
+# ---------------------------------------------------------------------------
+# Local data lake (never commit data; see docs/architecture/local-analytics.md)
+# ---------------------------------------------------------------------------
+data/
+*.parquet
+*.arrow
+*.feather
+*.duckdb
+*.duckdb.wal
+*.db
+
+# ---------------------------------------------------------------------------
+# Local configuration and secrets
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# Developer-local config layer. config/local.toml is the committed environment
+# layer and IS tracked; only the personal override file is ignored.
+config/override.toml
+
+*.pem
+*.key
+
+# ---------------------------------------------------------------------------
+# Terraform (Phase 5)
+# ---------------------------------------------------------------------------
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# ---------------------------------------------------------------------------
+# Databricks (Phase 3)
+# ---------------------------------------------------------------------------
+.databricks/
+.databrickscfg
+
+# ---------------------------------------------------------------------------
+# MLflow (Phase 7)
+# ---------------------------------------------------------------------------
+mlruns/
+mlartifacts/
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------------------
+# Notebooks: outputs are stripped by pre-commit, checkpoints are never committed
+# ---------------------------------------------------------------------------
+.ipynb_checkpoints/

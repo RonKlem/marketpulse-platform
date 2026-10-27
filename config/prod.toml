@@ -1,0 +1,34 @@
+# Production environment configuration.
+#
+# Production fails closed. Where a lower environment repairs a problem to keep
+# a developer moving, production surfaces it, because in production an
+# unexpected condition is more likely to be a misconfiguration than a
+# convenience.
+
+[storage]
+# Enforced by a cross-field invariant in PlatformConfig, which rejects
+# create_missing = true when environment is prod.
+#
+# Object storage locations are provisioned by Terraform and governed by Unity
+# Catalog external locations. If a path is missing at runtime, the correct
+# response is to fail loudly: silently creating it would produce a second,
+# ungoverned, unmonitored copy of a dataset that nothing is backing up and no
+# lineage graph knows about.
+create_missing = false
+
+[analytics]
+# Local analytics in production is limited to diagnostics and small
+# reconciliation queries. Anything at scale runs on Databricks (ADR-002), so
+# this ceiling is deliberately modest: a process that needs more than this is
+# using the wrong engine and should fail rather than quietly consume the host.
+memory_limit = "8GB"
+
+# Correctness over throughput. A production reconciliation query whose row
+# order varies between runs cannot be diffed against a prior result.
+preserve_insertion_order = true
+
+enable_progress_bar = false
+
+[logging]
+level = "INFO"
+format = "json"
